@@ -2,7 +2,7 @@
 class employee_model extends CI_Model {
 
     var $table = 'tbl_employee';
-    var $column = array('fname','lname'); //set column field database for order and search
+    var $column = array('fname','lname','qr_code'); //set column field database for order and search
     var $order = array('emp_id' => 'desc'); // default order
 
     function __construct()
@@ -13,7 +13,7 @@ class employee_model extends CI_Model {
 
     private function _get_datatables_query()
     {
-        $this->db->select('emp_id, fname, lname');
+        $this->db->select('emp_id, fname, lname, qr_code');
         $this->db->from($this->table);
         $i = 0;
         foreach ($this->column as $item) // loop column

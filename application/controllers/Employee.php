@@ -4,18 +4,17 @@ class employee extends CI_Controller{
   public function __construct()
   {
       parent::__construct();
+	  $this->load->helper('url');
       $this->load->model('employee_model');
   }
 
   public function index()
   {
-      $this->load->helper('url');
       $this->load->view('employee/index');
   }
 
   public function ajax_list()
   {
-      $this->load->helper('url');
       $list = $this->employee_model->get_datatables();
       $data = array();
       $no = $_POST['start'];
@@ -25,7 +24,9 @@ class employee extends CI_Controller{
           $row[] = '<input type="checkbox" class="data-check" value="'.$employee->emp_id.'" onclick="showBottomDelete()"/>';
           $row[] = $employee->fname;
           $row[] = $employee->lname;
-          $row[] = "<img src='".base_url()."qr-dtr/barcodes/".$employee->emp_id.".png'>";
+          //$row[] = "<img src='".base_url()."qr-dtr/barcodes/".$employee->emp_id.".png'>";
+          $row[] = "<img src='".base_url()."qr-dtr/qrcodes/".$employee->qr_code."' width=100px>";
+          
           //add html for action
           $row[] = '<a class="btn btn-sm btn-primary" href="#" title="Edit" onclick="editemployee('."'".$employee->emp_id."'".')"><i class="glyphicon glyphicon-pencil"></i> Edit</a>
                 <a class="btn btn-sm btn-danger" href="#" title="Delete" onclick="deleteemployee('."'".$employee->emp_id."'".')"><i class="glyphicon glyphicon-trash"></i> Delete</a>';
@@ -47,23 +48,55 @@ class employee extends CI_Controller{
       echo json_encode($data);
   }
 
+  function generate_qrcode($id)
+  {
+      /* Load QR Code Library */
+      $this->load->library('ciqrcode');
+    
+      /* Data */
+      $save_name  = $id.'.png'; // this naming is temporary, this can still be secured by bin2hex($id) as an example
+
+      $data = array(
+        'qr_code' => $save_name,
+        );
+      $this->employee_model->update(array('emp_id' => $id), $data);
+
+      /* QR Code File Directory Initialize */
+      $dir = 'qrcodes/';
+      if (!file_exists($dir)) {
+            mkdir($dir, 0775, true);
+      }
+
+      /* QR Configuration  */
+      $config['cacheable']    = true;
+      $config['imagedir']     = $dir;
+      $config['quality']      = true;
+      $config['size']         = '1024';
+      $config['black']        = array(255,255,255);
+      $config['white']        = array(255,255,255);
+      $this->ciqrcode->initialize($config);
+
+      /* QR Data  */
+      $params['data']     = $id;
+      $params['level']    = 'L';
+      $params['size']     = 10;
+      $params['savename'] = FCPATH.$config['imagedir']. $save_name;
+    
+      $this->ciqrcode->generate($params);
+  }
+
   public function ajax_add()
   {
       $this->_validate();
 
-      //load library
-      $this->load->library('zend');
-      //load in folder Zend
-      $this->zend->load('Zend/Barcode');
-      //generate barcode
       $data = array(
               'fname' => $this->input->post('fname'),
               'lname' => $this->input->post('lname')
           );
       $insert = $this->employee_model->save($data);
-      $qrCode = $this->db->insert_id();
-      $imageResource = Zend_Barcode::factory('code128', 'image', array('text'=>$qrCode), array())->draw();
-      imagepng($imageResource, 'barcodes/'.$qrCode.'.png');
+      $id = $this->db->insert_id();
+
+      $this->generate_qrcode($id);
 
       echo json_encode(array("status" => TRUE));
   }
@@ -82,7 +115,7 @@ class employee extends CI_Controller{
   public function ajax_delete($id)
   {
       $this->employee_model->delete_by_id($id);
-      unlink("barcodes/".$id.'.png');
+      unlink("qrcodes/".$id.'.png');
       echo json_encode(array("status" => TRUE));
   }
 
@@ -91,7 +124,7 @@ class employee extends CI_Controller{
        $list_id = $this->input->post('id');
        foreach ($list_id as $id) {
            $this->employee_model->delete_by_id($id);
-           unlink("barcodes/".$id.'.png');
+           unlink("qrcodes/".$id.'.png');
        }
        echo json_encode(array("status" => TRUE));
    }
